@@ -108,7 +108,8 @@ on:
 jobs:
   test:
     matrix: { os: [linux, windows, macos] }
-    runs-on: { os: ${{ matrix.os }} }
+    runs-on:
+      os: ${{ matrix.os }}
     steps:
       - run: make test
       - report: junit build/test-results/*.xml
