@@ -49,13 +49,13 @@ flowchart TB
     SIGN["Signing service<br/>keys in HSM / KMS"]
 
     subgraph pools["Worker pools: untrusted · trusted · release"]
-        subgraph wl["Linux worker"]
+        subgraph wl["worker-linux"]
             VML["Firecracker VM<br/>agent"]
         end
-        subgraph ww["Windows worker"]
+        subgraph ww["worker-windows"]
             VMW["Hyper-V VM<br/>agent"]
         end
-        subgraph wm["macOS worker"]
+        subgraph wm["worker-macos"]
             VMM["macOS VM<br/>agent"]
         end
     end
@@ -91,7 +91,7 @@ flowchart TB
 | Component | Language | Role |
 |---|---|---|
 | **controller** | Go | API, provider integration, pipeline engine, scheduler, secrets broker |
-| **worker** | Go | Runs on each build machine, manages the hypervisor and the warm pool of VMs |
+| **worker-linux / -windows / -macos** | Go | One worker per OS, each in its own repository. Runs on build machines and manages the hypervisor and the warm pool of VMs. Shared logic comes from the worker kit in core. |
 | **agent** | Go | Runs inside each VM, executes steps, streams logs, uploads results |
 | **signer** | Go | Optional service that signs release artifacts; keys never leave it |
 | **web** | Angular | Web UI for pipelines, runs, logs, workers and administration |
@@ -126,7 +126,10 @@ jobs:
 
 | Repository | Description |
 |---|---|
-| [opifica](https://github.com/opifica/opifica) | Core services: controller, worker, agent, signer, CLI, API definitions and the pipeline language |
+| [opifica](https://github.com/opifica/opifica) | Core: controller, agent, signer, CLI, API definitions, the pipeline language and the shared worker kit |
+| [worker-linux](https://github.com/opifica/worker-linux) | Linux worker: Firecracker microVMs |
+| [worker-windows](https://github.com/opifica/worker-windows) | Windows worker: Hyper-V VMs |
+| [worker-macos](https://github.com/opifica/worker-macos) | macOS worker: Apple Virtualization.framework VMs |
 | [web](https://github.com/opifica/web) | Angular web UI |
 | [images](https://github.com/opifica/images) | Packer recipes for the golden VM images (Linux, Windows, macOS) |
 
