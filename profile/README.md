@@ -15,7 +15,8 @@ That way a compromised build can never infect the next one.
   Virtualization.framework). Nothing a job does survives it.
 - **Built for supply-chain security.** Separate trust pools for pull requests, main branches and releases.
   Signing keys never touch a build machine. Every artifact gets signed provenance.
-- **Bring your own Git.** Pluggable providers for GitHub, GitLab, Gitea/Forgejo or a plain Git server.
+- **Your git, your way.** Host repositories on your own server, where a git hook starts runs, or keep them on
+  GitHub and start runs from a GitHub Actions step. No forge integrations to depend on.
 - **Everything as code.** Developers write pipelines in their repository. Admins manage workers, pools, secrets
   and policies in a separate Git repository (GitOps).
 - **Sovereign by default.** Fully self-hostable, no required calls to services outside your control,
@@ -25,11 +26,9 @@ That way a compromised build can never infect the next one.
 
 ```mermaid
 flowchart TB
-    subgraph forges["Git providers (pluggable)"]
-        GH["GitHub"]
-        GL["GitLab"]
-        GT["Gitea / Forgejo"]
-        GIT["Plain Git server"]
+    subgraph sources["Where the code lives"]
+        OWN["Your git server<br/>bare repos + post-receive hook"]
+        GH["GitHub<br/>workflow step: opifica trigger"]
     end
 
     UI["Web UI (Angular)"]
@@ -37,7 +36,7 @@ flowchart TB
     CFG["Admin config repo<br/>pools, secrets, policies"]
 
     subgraph controller["Controller (Go)"]
-        PROV["Provider layer<br/>webhooks, polling, status"]
+        PROV["Trigger API<br/>repositories, routing, tokens"]
         PIPE["Pipeline engine<br/>YAML + CEL"]
         SCHED["Scheduler<br/>trust pools, leases"]
         SEC["Secrets broker"]
@@ -60,8 +59,8 @@ flowchart TB
         end
     end
 
-    forges -- "webhooks / polling" --> PROV
-    PROV -- "commit status" --> forges
+    sources -- "ref moved (trigger token)" --> PROV
+    pools -- "fetch the commit" --> sources
     CFG -- "GitOps sync" --> controller
     UI --> API
     CLI --> API
@@ -74,10 +73,10 @@ flowchart TB
 
 ### How a build flows
 
-1. **Event:** a push, pull request or tag reaches the controller through a provider, via webhook or polling.
-   The event is pinned to an exact commit SHA.
-2. **Plan:** the controller reads `.opifica/pipeline.yaml` at that commit. It applies the admin policy and
-   routes each job to a trust pool. The pool is chosen by the controller, never by the pipeline file.
+1. **Event:** a push, pull request or tag reaches the controller: from the git hook on your server, or from a
+   GitHub Actions step. The event is pinned to an exact commit SHA.
+2. **Plan:** the controller reads `.opifica/pipeline.yaml` at that commit itself. The repository's routing rules
+   pick the trust pool; the pipeline file can't choose it.
 3. **Schedule:** a worker with the right OS, architecture and pool takes the job from its warm pool of
    pre-booted VMs.
 4. **Run:** the agent inside the VM gets the source from the worker's local Git mirror and runs the steps.
@@ -90,12 +89,12 @@ flowchart TB
 
 | Component | Language | Role |
 |---|---|---|
-| **controller** | Go | API, provider integration, pipeline engine, scheduler, secrets broker |
+| **controller** | Go | API, repositories and triggers, pipeline engine, scheduler, secrets broker |
+| **opifica** | Go | CLI: validate pipelines, start runs from GitHub Actions, the git hook for your own server |
 | **worker-linux / -windows / -macos** | Go | One worker per OS, each in its own repository. Runs on build machines and manages the hypervisor and the warm pool of VMs. Shared logic comes from the worker kit in core. |
 | **agent** | Go | Runs inside each VM, executes steps, streams logs, uploads results |
 | **signer** | Go | Optional service that signs release artifacts; keys never leave it |
 | **web** | Angular | Web UI for pipelines, runs, logs, workers and administration |
-| **opifica** | Go | CLI for developers and admins |
 
 ### A pipeline, for example
 
